@@ -1,0 +1,60 @@
+{
+  "name": "Dora – Document & Chat Automation Agent",
+  "description": "Dora is an advanced AI agent designed to streamline document workflows through intelligent chat and seamless PDF conversion. It provides instant conversational support and efficiently transforms user-provided text or content into professional PDF documents.",
+  "url": "https://dora-agent.vercel.app/api/a2a",
+  "provider": {
+    "organization": "Layobright Solutions Inc.",
+    "url": "https://layobrightsolutions.com"
+  },
+  "version": "1.0.0",
+  "documentationUrl": "https://dora-agent.vercel.app/docs",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": true,
+    "stateTransitionHistory": true
+  },
+  "defaultInputModes": [
+    "application/json",
+    "text/plain",
+    "image/*",
+    "application/octet-stream"
+  ],
+  "defaultOutputModes": [
+    "application/json",
+    "text/plain",
+    "application/pdf",
+    "image/*",
+    "application/octet-stream"
+  ],
+  "skills": [
+    {
+      "id": "pdf-converter",
+      "name": "Content to PDF Converter",
+      "description": "Transforms user-provided text, notes, or extensive content into a structured, downloadable PDF document. Dora will guide you through the content submission process.",
+      "tags": ["document-conversion", "pdf-generation", "content-export", "automation", "reporting"],
+      "examples": [
+        "Convert this text to PDF: 'My corporate report content...'",
+        "Please generate a PDF from the following notes.",
+        "Can you turn this article into a PDF document?",
+        "I need to create a PDF. What information do you need?"
+      ],
+      "inputModes": ["text/plain", "application/json", "image/*"],
+      "outputModes": ["application/pdf", "application/json"]
+    },
+    {
+      "id": "dora-chat",
+      "name": "Conversational Assistant",
+      "description": "Engage in intelligent conversation with Dora. Ask questions about document management, PDF functionalities, or receive general assistance for your productivity needs.",
+      "tags": ["chat", "conversation", "assistant", "support", "document-qa"],
+      "examples": [
+        "Hi Dora, how can you help me today?",
+        "What are your capabilities?",
+        "How do I use the PDF converter?",
+        "Can you explain data security for my documents?"
+      ],
+      "inputModes": ["text/plain", "application/json", "image/*"],
+      "outputModes": ["text/plain", "application/json"]
+    }
+  ],
+  "supportsAuthenticatedExtendedCard": true
+}
