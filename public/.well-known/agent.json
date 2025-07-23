@@ -1,13 +1,13 @@
 {
   "name": "Dora – Document & Chat Automation Agent",
   "description": "Dora is an advanced AI agent designed to streamline document workflows through intelligent chat and seamless PDF conversion. It provides instant conversational support and efficiently transforms user-provided text or content into professional PDF documents.",
-  "url": "https://dora-agent.vercel.app/api/a2a",
+  "url": "https://dora-mufo.onrender.com/api/a2a",
   "provider": {
     "organization": "Layobright Solutions Inc.",
-    "url": "https://layobrightsolutions.com"
+    "url": "https://dora-mufo.onrender.com"
   },
   "version": "1.0.0",
-  "documentationUrl": "https://dora-agent.vercel.app/docs",
+  "documentationUrl": "https://dora-mufo.onrender.com/docs",
   "capabilities": {
     "streaming": false,
     "pushNotifications": true,
