@@ -60,20 +60,27 @@ export async function chatWithDora(userInput: string): Promise<string> {
 
 
 export async function determineDoraIntent(userInput: string): Promise<"chat" | "pdf_conversion"> {
-    const prompt = `Analyze the following user input and determine if the user intends to:
-    1. Have a general chat (respond with "chat")
-    2. Request content to be converted into a PDF (respond with "pdf_conversion")
+    const prompt = `Analyze the following user input and determine the primary intent:
+    1. **chat**: User is having a general conversation, asking questions, or making a statement not directly providing content for conversion.
+    2. **pdf_conversion**: User is explicitly providing large content to be converted to PDF, or a clear command to convert given content.
 
-    Examples:
-    - "Hello there!" -> chat
-    - "Hi Dora" -> chat
-    - "What is your name?" -> chat
-    - "Convert this text to PDF: This is my document." -> pdf_conversion
-    - "Make a PDF of these notes." -> pdf_conversion
-    - "Please turn this into a PDF document about blockchain: Blockchain is a distributed ledger." -> pdf_conversion
-    - "Generate a PDF from this." -> pdf_conversion
-    - "Can you make a PDF of the following content?" -> pdf_conversion
-    - "Convert to PDF" -> pdf_conversion
+    If the user is only *asking if* you can convert, or *stating a need to convert without providing the content*, categorize it as 'chat'. Only classify as 'pdf_conversion' if content is large and clearly present for conversion or the command is immediate.
+
+    Examples for 'chat':
+    - "Hello there!"
+    - "Hi Dora"
+    - "What is your name?"
+    - "I need help to convert a content to pdf document"
+    - "Can you make a PDF for me?"
+    - "How do I use your PDF converter?"
+    - "I want to convert something later."
+
+    Examples for 'pdf_conversion':
+    - "Convert this text to PDF: This is my document."
+    - "Make a PDF of these notes."
+    - "Please turn this into a PDF document about blockchain: Blockchain is a distributed ledger."
+    - "Generate a PDF from this."
+    - "Convert to PDF" (if content is assumed or provided in context)
 
     User input: "${userInput}"
     Intent:`;
@@ -84,7 +91,7 @@ export async function determineDoraIntent(userInput: string): Promise<"chat" | "
     }];
 
     try {
-        const resultText = await makeGeminiApiRequest(contents, { maxOutputTokens: 50 }); // Shorter response expected
+        const resultText = await makeGeminiApiRequest(contents, { maxOutputTokens: 50 });
         const text = resultText.trim().toLowerCase();
 
         if (text.includes("pdf_conversion")) {
@@ -93,6 +100,6 @@ export async function determineDoraIntent(userInput: string): Promise<"chat" | "
         return "chat";
     } catch (error) {
         console.error("[Gemini Intent Error]", error);
-        return "chat";
+        return "chat"; // Default to chat on error
     }
 }

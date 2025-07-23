@@ -34,6 +34,13 @@ export interface PushNotificationConfig {
     };
 }
 
+export type InternalInputDataType = "chat" | "pdf_conversion" | "pdf_conversion_awaiting_content";
+
+export interface InternalInputData {
+    type: InternalInputDataType;
+    data: string;
+}
+
 export type Task = {
     id: string;
     contextId: string;
@@ -43,11 +50,8 @@ export type Task = {
     error?: string;
     // ADDED: The history property was missing from the Task type definition
     history: HistoryMessage[];
-    internalInputData: {
-        type: "chat" | "pdf_conversion";
-        data: string;
-    };
     lastAgentResponseParts?: MessagePart[];
     lastAgentMessageId?: string;
     webhookConfig?: PushNotificationConfig;
+    internalInputData: InternalInputData;
 };
