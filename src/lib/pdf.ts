@@ -78,8 +78,14 @@
 //     doc.text('', { continued: false });
 // }
 
-import puppeteer from "puppeteer"
-import { v2 as cloudinary } from "cloudinary"
+import puppeteer from "puppeteer"; // Use original puppeteer if not using puppeteer-extra
+// import puppeteer from "puppeteer-extra"; // If you prefer puppeteer-extra
+// import StealthPlugin from "puppeteer-extra-plugin-stealth"; // If using puppeteer-extra
+
+import { v2 as cloudinary } from "cloudinary";
+
+// If using puppeteer-extra, uncomment this:
+// puppeteer.use(StealthPlugin());
 
 // Configure Cloudinary
 cloudinary.config({
@@ -87,34 +93,44 @@ cloudinary.config({
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
     secure: true,
-})
+});
 
 interface ContentBlock {
-    type: "heading" | "paragraph" | "bullet" | "numbered" | "link" | "empty" | "code"
-    content: string
-    level?: number
-    indent?: number
+    type: "heading" | "paragraph" | "bullet" | "numbered" | "link" | "empty" | "code";
+    content: string;
+    level?: number;
+    indent?: number;
 }
 
 export async function generatePdfFromText(textContent: string): Promise<string> {
-    let browser
+    let browser;
 
     try {
         // Parse content and generate HTML
-        const htmlContent = generateHTML(textContent)
+        const htmlContent = generateHTML(textContent);
 
         // Launch browser
+        // Puppeteer will automatically look for the installed Chrome/Chromium
+        // If you explicitly need to set it for Render, you might use:
+        // executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
+        // but the `postinstall` script should make it discoverable.
         browser = await puppeteer.launch({
-            headless: true,
-            args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-        })
+            headless: true, // true for production, 'new' for new headless mode
+            args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                // These args are crucial for running in constrained environments like Render
+            ],
+        });
 
-        const page = await browser.newPage()
+        const page = await browser.newPage();
 
         // Set content and wait for any fonts/styles to load
         await page.setContent(htmlContent, {
-            waitUntil: "networkidle0",
-        })
+            waitUntil: "networkidle0", // waits until network activity is low
+        });
 
         // Generate PDF with proper settings
         const pdfBuffer = await page.pdf({
@@ -126,42 +142,43 @@ export async function generatePdfFromText(textContent: string): Promise<string> 
                 bottom: "0.75in",
                 left: "0.75in",
             },
-        })
+        });
 
         // Upload to Cloudinary
         const result = await new Promise<any>((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream(
                 {
-                    resource_type: "raw",
+                    resource_type: "raw", // Use 'raw' for PDFs
                     folder: "generated_pdfs",
                     format: "pdf",
                 },
                 (error, uploadResult) => {
                     if (uploadResult && uploadResult.secure_url) {
-                        resolve(uploadResult)
+                        resolve(uploadResult);
                     } else {
-                        reject(error || new Error("Cloudinary upload failed."))
+                        reject(error || new Error("Cloudinary upload failed."));
                     }
                 },
-            )
+            );
+            uploadStream.end(pdfBuffer);
+        });
 
-            uploadStream.end(pdfBuffer)
-        })
-
-        return result.secure_url
+        return result.secure_url;
     } catch (error) {
-        console.error("PDF generation error:", error)
-        throw new Error(`PDF generation failed: ${error instanceof Error ? error.message : String(error)}`)
+        console.error("PDF generation error:", error);
+        throw new Error(
+            `PDF generation failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
     } finally {
         if (browser) {
-            await browser.close()
+            await browser.close();
         }
     }
 }
 
 function generateHTML(textContent: string): string {
-    const contentBlocks = parseContent(textContent)
-    const bodyContent = renderContentBlocks(contentBlocks)
+    const contentBlocks = parseContent(textContent);
+    const bodyContent = renderContentBlocks(contentBlocks);
 
     return `
 <!DOCTYPE html>
@@ -179,7 +196,7 @@ function generateHTML(textContent: string): string {
         ${bodyContent}
     </div>
 </body>
-</html>`
+</html>`;
 }
 
 function getCSS(): string {
@@ -199,7 +216,7 @@ function getCSS(): string {
 
     .document {
         max-width: 100%;
-        padding: 0;
+        padding: 0; /* Ensures content spans full width of PDF if no margins are set on the document itself */
     }
 
     /* Headings */
@@ -291,16 +308,16 @@ function getCSS(): string {
     /* Lists */
     ul, ol {
         margin: 0 0 16px 0;
-        padding-left: 0;
+        padding-left: 0; /* Remove default browser padding */
     }
 
     ul {
-        list-style: none;
+        list-style: none; /* Remove default bullet */
     }
 
     ol {
-        list-style: none;
-        counter-reset: item;
+        list-style: none; /* Remove default numbering */
+        counter-reset: item; /* Initialize counter for custom numbering */
     }
 
     li {
@@ -308,50 +325,50 @@ function getCSS(): string {
         line-height: 1.6;
         margin: 8px 0;
         position: relative;
-        padding-left: 24px;
+        padding-left: 24px; /* Space for custom bullet/number */
     }
 
-    /* Bullet points */
+    /* Custom Bullet points */
     ul li::before {
         content: "•";
         color: #666;
         font-weight: bold;
         position: absolute;
         left: 0;
-        top: 0;
+        top: 0; /* Align with text baseline */
     }
 
     ul.level-1 li::before {
-        content: "•";
+        content: "•"; /* Default bullet */
     }
 
     ul.level-2 li::before {
-        content: "◦";
+        content: "◦"; /* Hollow circle for level 2 */
     }
 
     ul.level-3 li::before {
-        content: "▪";
+        content: "▪"; /* Square for level 3 */
     }
 
     ul.level-4 li::before {
-        content: "▫";
+        content: "▫"; /* Hollow square for level 4 */
     }
 
-    /* Numbered lists */
+    /* Custom Numbered lists */
     ol li {
-        counter-increment: item;
+        counter-increment: item; /* Increment counter for each list item */
     }
 
     ol li::before {
-        content: counter(item) ".";
+        content: counter(item) "."; /* Display number followed by a dot */
         color: #666;
         font-weight: 600;
         position: absolute;
         left: 0;
-        top: 0;
+        top: 0; /* Align with text baseline */
     }
 
-    /* Nested lists */
+    /* Nested lists indentation */
     .indent-1 {
         margin-left: 24px;
     }
@@ -370,15 +387,15 @@ function getCSS(): string {
 
     /* Empty lines for spacing */
     .empty-line {
-        height: 16px;
+        height: 16px; /* Provides vertical spacing */
     }
 
-    /* Standalone links */
+    /* Standalone links (e.g., URLs on their own line) */
     .standalone-link {
-        display: block;
+        display: block; /* Ensures it takes full width */
         margin: 12px 0;
         font-size: 14px;
-        word-break: break-all;
+        word-break: break-all; /* Prevents long URLs from overflowing */
     }
 
     /* Code blocks */
@@ -390,10 +407,10 @@ function getCSS(): string {
         border-radius: 6px;
         border: 1px solid #e9ecef;
         margin: 16px 0;
-        overflow-x: auto;
+        overflow-x: auto; /* For horizontally scrolling code */
     }
 
-    /* Contact info styling */
+    /* Contact info styling (if used in future) */
     .contact-info {
         margin: 16px 0;
         padding: 16px;
@@ -402,7 +419,7 @@ function getCSS(): string {
         border-left: 4px solid #0066cc;
     }
 
-    /* Section dividers */
+    /* Section dividers (if used in future) */
     hr {
         border: none;
         height: 2px;
@@ -410,201 +427,216 @@ function getCSS(): string {
         margin: 32px 0;
     }
 
-    /* Print optimizations */
+    /* Print optimizations for consistent rendering */
     @media print {
         body {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact; /* For Webkit browsers */
+            print-color-adjust: exact; /* Standard */
         }
         
         .document {
-            padding: 0;
+            padding: 0; /* Ensure no extra padding in print layout */
         }
     }
-  `
+  `;
 }
 
 function parseContent(textContent: string): ContentBlock[] {
-    const lines = textContent.split("\n")
-    const blocks: ContentBlock[] = []
+    const lines = textContent.split("\n");
+    const blocks: ContentBlock[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-        const trimmedLine = line.trim()
+        const line = lines[i];
+        const trimmedLine = line.trim();
 
         if (trimmedLine === "") {
-            blocks.push({ type: "empty", content: "" })
-            continue
+            blocks.push({ type: "empty", content: "" });
+            continue;
         }
 
         // Check for headings (# ## ###)
-        const headingMatch = trimmedLine.match(/^(#{1,6})\s+(.+)$/)
+        const headingMatch = trimmedLine.match(/^(#{1,6})\s+(.+)$/);
         if (headingMatch) {
             blocks.push({
                 type: "heading",
                 content: headingMatch[2],
                 level: headingMatch[1].length,
-            })
-            continue
+            });
+            continue;
         }
 
         // Check for bullet points (* - +)
-        const bulletMatch = trimmedLine.match(/^[*\-+]\s+(.+)$/)
+        const bulletMatch = trimmedLine.match(/^[*\-+]\s+(.+)$/);
         if (bulletMatch) {
-            const indent = line.length - line.trimStart().length
+            const indent = line.length - line.trimStart().length;
             blocks.push({
                 type: "bullet",
                 content: bulletMatch[1],
                 indent: Math.floor(indent / 2),
-            })
-            continue
+            });
+            continue;
         }
 
         // Check for numbered lists (1. 2. etc.)
-        const numberedMatch = trimmedLine.match(/^\d+\.\s+(.+)$/)
+        const numberedMatch = trimmedLine.match(/^\d+\.\s+(.+)$/);
         if (numberedMatch) {
-            const indent = line.length - line.trimStart().length
+            const indent = line.length - line.trimStart().length;
             blocks.push({
                 type: "numbered",
                 content: numberedMatch[1],
                 indent: Math.floor(indent / 2),
-            })
-            continue
+            });
+            continue;
         }
 
         // Check for code blocks (```)
         if (trimmedLine.startsWith("```")) {
-            const codeLines = []
-            i++ // Skip the opening ```
+            const codeLines = [];
+            i++; // Skip the opening ```
             while (i < lines.length && !lines[i].trim().startsWith("```")) {
-                codeLines.push(lines[i])
-                i++
+                codeLines.push(lines[i]);
+                i++;
             }
             blocks.push({
                 type: "code",
                 content: codeLines.join("\n"),
-            })
-            continue
+            });
+            continue;
         }
 
         // Check for standalone links
-        const linkMatch = trimmedLine.match(/^https?:\/\/[^\s]+$/)
+        const linkMatch = trimmedLine.match(/^https?:\/\/[^\s]+$/);
         if (linkMatch) {
             blocks.push({
                 type: "link",
                 content: trimmedLine,
-            })
-            continue
+            });
+            continue;
         }
 
         // Default to paragraph
         blocks.push({
             type: "paragraph",
             content: trimmedLine,
-        })
+        });
     }
 
-    return blocks
+    return blocks;
 }
 
 function renderContentBlocks(blocks: ContentBlock[]): string {
-    let html = ""
-    let currentList: { type: "bullet" | "numbered"; level: number } | null = null
+    let html = "";
+    let currentList: { type: "bullet" | "numbered"; level: number } | null = null;
 
     for (let i = 0; i < blocks.length; i++) {
-        const block = blocks[i]
-        const nextBlock = blocks[i + 1]
+        const block = blocks[i];
+        const nextBlock = blocks[i + 1];
 
         switch (block.type) {
             case "heading":
                 // Close any open lists
                 if (currentList) {
-                    html += currentList.type === "bullet" ? "</ul>" : "</ol>"
-                    currentList = null
+                    html += currentList.type === "bullet" ? "</ul>" : "</ol>";
+                    currentList = null;
                 }
-                html += `<h${block.level || 1}>${processInlineFormatting(block.content)}</h${block.level || 1}>`
-                break
+                html += `<h${block.level || 1}>${processInlineFormatting(block.content)}</h${block.level || 1}>`;
+                break;
 
             case "paragraph":
                 // Close any open lists
                 if (currentList) {
-                    html += currentList.type === "bullet" ? "</ul>" : "</ol>"
-                    currentList = null
+                    html += currentList.type === "bullet" ? "</ul>" : "</ol>";
+                    currentList = null;
                 }
-                html += `<p>${processInlineFormatting(block.content)}</p>`
-                break
+                html += `<p>${processInlineFormatting(block.content)}</p>`;
+                break;
 
             case "bullet":
-                const bulletLevel = Math.min(block.indent || 0, 3)
+                const bulletLevel = Math.min(block.indent || 0, 3); // Max 4 levels for example
 
+                // If no current list, or different type/level, open new list
                 if (!currentList || currentList.type !== "bullet" || currentList.level !== bulletLevel) {
+                    // Close previous list if open
                     if (currentList) {
-                        html += currentList.type === "bullet" ? "</ul>" : "</ol>"
+                        html += currentList.type === "bullet" ? "</ul>" : "</ol>";
                     }
-                    html += `<ul class="level-${bulletLevel + 1} ${bulletLevel > 0 ? `indent-${bulletLevel}` : ""}">`
-                    currentList = { type: "bullet", level: bulletLevel }
+                    html += `<ul class="level-${bulletLevel + 1} ${bulletLevel > 0 ? `indent-${bulletLevel}` : ""}">`;
+                    currentList = { type: "bullet", level: bulletLevel };
                 }
 
-                html += `<li>${processInlineFormatting(block.content)}</li>`
+                html += `<li>${processInlineFormatting(block.content)}</li>`;
 
                 // Close list if next block is not a bullet or is at a different level
                 if (!nextBlock || nextBlock.type !== "bullet" || (nextBlock.indent || 0) !== bulletLevel) {
-                    html += "</ul>"
-                    currentList = null
+                    html += "</ul>";
+                    currentList = null;
                 }
-                break
+                break;
 
             case "numbered":
-                const numberedLevel = Math.min(block.indent || 0, 3)
+                const numberedLevel = Math.min(block.indent || 0, 3); // Max 4 levels for example
 
+                // If no current list, or different type/level, open new list
                 if (!currentList || currentList.type !== "numbered" || currentList.level !== numberedLevel) {
+                    // Close previous list if open
                     if (currentList) {
-                        html += currentList.type === "bullet" ? "</ul>" : "</ol>"
+                        html += currentList.type === "bullet" ? "</ul>" : "</ol>";
                     }
-                    html += `<ol class="${numberedLevel > 0 ? `indent-${numberedLevel}` : ""}">`
-                    currentList = { type: "numbered", level: numberedLevel }
+                    html += `<ol class="${numberedLevel > 0 ? `indent-${numberedLevel}` : ""}">`;
+                    currentList = { type: "numbered", level: numberedLevel };
                 }
 
-                html += `<li>${processInlineFormatting(block.content)}</li>`
+                html += `<li>${processInlineFormatting(block.content)}</li>`;
 
                 // Close list if next block is not numbered or is at a different level
                 if (!nextBlock || nextBlock.type !== "numbered" || (nextBlock.indent || 0) !== numberedLevel) {
-                    html += "</ol>"
-                    currentList = null
+                    html += "</ol>";
+                    currentList = null;
                 }
-                break
+                break;
 
             case "link":
                 // Close any open lists
                 if (currentList) {
-                    html += currentList.type === "bullet" ? "</ul>" : "</ol>"
-                    currentList = null
+                    html += currentList.type === "bullet" ? "</ul>" : "</ol>";
+                    currentList = null;
                 }
-                html += `<div class="standalone-link"><a href="${block.content}" target="_blank">${block.content}</a></div>`
-                break
+                html += `<div class="standalone-link"><a href="${block.content}" target="_blank">${block.content}</a></div>`;
+                break;
 
             case "code":
                 // Close any open lists
                 if (currentList) {
-                    html += currentList.type === "bullet" ? "</ul>" : "</ol>"
-                    currentList = null
+                    html += currentList.type === "bullet" ? "</ul>" : "</ol>";
+                    currentList = null;
                 }
-                html += `<div class="code-block">${escapeHtml(block.content)}</div>`
-                break
+                html += `<div class="code-block">${escapeHtml(block.content)}</div>`;
+                break;
 
             case "empty":
-                html += '<div class="empty-line"></div>'
-                break
+                html += '<div class="empty-line"></div>';
+                break;
         }
     }
 
-    // Close any remaining open lists
+    // Close any remaining open lists at the very end
     if (currentList) {
-        html += currentList.type === "bullet" ? "</ul>" : "</ol>"
+        html += currentList.type === "bullet" ? "</ul>" : "</ol>";
     }
 
-    return html
+    return html;
 }
+
+// Fixed escapeHtml for Node.js environment
+function escapeHtml(text: string): string {
+    return text
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
 
 function processInlineFormatting(text: string): string {
     // Handle bold text (**text**)
@@ -624,10 +656,4 @@ function processInlineFormatting(text: string): string {
     text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>')
 
     return text
-}
-
-function escapeHtml(text: string): string {
-    const div = document.createElement("div")
-    div.textContent = text
-    return div.innerHTML
 }
